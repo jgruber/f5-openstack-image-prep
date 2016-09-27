@@ -305,6 +305,47 @@ function configure_tmm_ifs() {
     tmsh save sys config | eval $LOGGER_CMD
 }
 
+function configure_mgmt_if() {
+    
+    local dhcp_enabled_global=$OS_DHCP_ENABLED
+    [[ ${dhcp_enabled_global} == true && \
+	$(get_user_data_value {bigip}{network}{dhcp}) == false ]] && \
+	dhcp_enabled_global=false
+
+	local mgmt_dhcp_enabled=$(get_user_data_value {bigip}{network}{interfaces}{mgmt}{dhcp})
+
+	if [[ $dhcp_enabled_global == false || $mgmt_dhcp_enabled == false ]]; then
+
+		# DHCP is disabled, look for static address and configure it
+		mgmt_address=$(get_user_data_value {bigip}{network}{interfaces}{mgmt}{address})
+		mgmt_netmask=$(get_user_data_value {bigip}{network}{interfaces}{mgmt}{netmask})
+
+		if [[ -n $mgmt_address && -n $mgmt_netmask ]]; then
+		    tmsh create /sys management-ip $mgmt_address/$mgmt_netmask
+		else
+		    log "DHCP is disabled and no static address could be located for mgmt, skipping..."
+		fi
+		
+		mgmt_mtu=$(get_user_data_value {bigip}{network}{interfaces}{mgmt}{mtu})
+		if [[ -n $mtu ]]; then
+		    ip link set eth0 mtu $mgmt_mtu
+		fi
+		
+		mgmt_ipv4_default_gateway=$(get_user_data_value {bigip}{network}{interfaces}{mgmt}{ipv4_default_gateway})
+        if [[ -n $mgmt_ipv4_default_gateway ]]; then
+            tmsh create /sys management-route default gateway $mgmt_ipv4_default_gateway
+        fi
+
+		mgmt_ipv6_default_gateway=$(get_user_data_value {bigip}{network}{interfaces}{mgmt}{ipv6_default_gateway})
+		if [[ -n $mgmt_ipv6_default_gateway ]]; then
+            create /sys management-route default-inet6 gateway $mgmt_ipv6_default_gateway
+        fi
+
+	else
+	    log "DHCP is on by default for the mgmt interface, skipping..."
+	fi
+	
+}
 
 # Change the management MTU.
 function force_mgmt_mtu() {

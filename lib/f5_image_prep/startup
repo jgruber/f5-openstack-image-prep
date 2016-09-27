@@ -173,6 +173,9 @@ function main() {
 				# Change admin and root password
 				change_passwords
 
+                # Configure mgmt networking
+                configure_mgmt_if
+
 				# Configure base L2 and L3 neworking
 				configure_tmm_ifs
 
